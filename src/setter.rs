@@ -1,21 +1,21 @@
 impl Field {
-    fn as_valued_ty(self: &Self, reffed: bool, def_optional: bool) -> TokenStream {
+    fn as_valued_ty(self: &Self, reffed: bool, is_optional: bool) -> TokenStream {
         let f = self;
         let ty = f.as_ty();
         let col = f.as_column_ty();
         let exp = if reffed {
-            quote!{(&'a #ty, #col)}
+            quote!{(&#ty, #col)}
         } else {
             quote!{(#ty, #col)}
         };
-        if f.is_optional.unwrap_or(def_optional) {
+        if f.is_optional.unwrap_or(is_optional) {
             quote!{ Opt!#exp }
         } else {
             quote!{ With!#exp }
         }
     }
 
-    fn as_value_setter(self: &Self, reffed: bool, def_optional: bool) -> TokenStream {
+    fn as_value_setter(self: &Self, reffed: bool, is_optional: bool) -> TokenStream {
         let f = self;
         let ident = f.as_ident();
         let cap = f.as_const();
@@ -24,7 +24,7 @@ impl Field {
         } else {
             quote!{ self.#ident}
         };
-        if f.is_optional.unwrap_or(def_optional) {
+        if f.is_optional.unwrap_or(is_optional) {
             if reffed {
                 quote!{ #cap.if_some_ref(#ident) }
             } else {
@@ -38,7 +38,7 @@ impl Field {
 
 pub fn trait_impl(input: Struct) -> TokenStream {
 
-    let Struct { ident, generics, is_optional, fields } = input;
+    let Struct { ident, generics, is_optional, fields, source } = input;
 
     let types: Punctuated<_, Token![,]> = fields.iter()
         .map(|f| Field::as_valued_ty(f, true, is_optional))
@@ -62,7 +62,7 @@ pub fn trait_impl(input: Struct) -> TokenStream {
 
 pub fn trait_impl_owned(input: Struct) -> TokenStream {
 
-    let Struct { ident, generics, is_optional, fields } = input;
+    let Struct { ident, generics, is_optional, fields, source } = input;
 
     let types: Punctuated<_, Token![,]> = fields.iter()
         .map(|f| Field::as_valued_ty(f, false, is_optional))
@@ -84,19 +84,55 @@ pub fn trait_impl_owned(input: Struct) -> TokenStream {
 }
 
 pub fn trait_impl_takes_unit(input: Struct) -> TokenStream {
-    let Struct { ident, generics, is_optional, fields } = input;
-    let types: Vec<_> = fields.iter()
-        .map(|f| Field::as_valued_ty(f, true, is_optional))
-        .collect();
+    let Struct { ident, generics, is_optional, fields, source } = input;
 
-    let setters: Vec<_> = fields.iter()
-        .map(|f| Field::as_value_setter(f, true, is_optional))
-        .collect();
+    let pushes: Vec<_> = fields.iter().map(|f| {
+        let wrap = f.as_col_wrapped_ty();
+        let ty = f.as_ty();
+        let ident = f.as_ident();
+        let cap = f.as_const();
+        if f.is_optional.unwrap_or(is_optional) {
+            quote!{ match self.#ident.as_ref() {
+                Some(r) => {
+                    <#wrap as Takes<_>>::push_values(&#cap, r, buf);
+                },
+                _ => {},
+            }}
+        } else {
+            quote!{ <#wrap as Takes<_>>::push_values(&#cap, &self.#ident, buf); }
+        }
+    }).collect();
 
     quote!{
         impl<'a> tygres::Takes<'a, tygres::utils::Unit> for #ident {
             fn push_values<'b>(&'a self, values: Unit, buf: &'b mut Vec<&'a postgres::types::ToSql>) {
-                #(<#types as Takes<'a, Unit>>::push_values(&#setters, values, buf);)*
+                #(#pushes)*
+            }
+        }
+    }
+}
+
+pub fn trait_impl_columns_setter(input: Struct) -> TokenStream {
+    let Struct { ident, generics, is_optional, fields, source } = input;
+    let src = match source {
+        Some(s) => s,
+        _ => panic!("source attribute is required for ColumnsSetter"),
+    };
+    let sels: Punctuated<_, Token![,]> = fields.iter()
+        .map(|f| Field::as_value_setter(f, true, is_optional))
+        .collect();
+    let types: Punctuated<_, Token![,]> = fields.iter()
+        .map(|f| Field::as_valued_ty(f, true, is_optional))
+        .collect();
+    let sels2 = sels.clone();
+    quote!{
+        impl tygres::ColumnsSetter<#src> for #ident {
+            fn push_selection(&self, buf: &mut String) -> bool {
+                seq![#(#sels),*].push_selection(buf)
+            }
+            fn push_values(&self, buf: &mut String, idx: usize) -> usize {
+                <Seq![#(#types),*] as tygres::ColumnsSetter<#src>>
+                    ::push_values(&seq![#(#sels2),*], buf, idx)
             }
         }
     }

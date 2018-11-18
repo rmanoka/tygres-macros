@@ -8,6 +8,7 @@ pub struct Struct {
     pub generics: syn::Generics,
     pub is_optional: bool,
     pub fields: Vec<Field>,
+    pub source: Option<Ident>,
 }
 
 impl FromDeriveInput for Struct {
@@ -18,6 +19,7 @@ impl FromDeriveInput for Struct {
                 ident: f.ident,
                 generics: f.generics,
                 is_optional: f.optional.is_some(),
+                source: f.source,
                 fields: f.data
                             .take_struct()
                             .expect("Should never be enum")
@@ -39,7 +41,8 @@ pub struct StructReceiver {
 
     #[darling(default)]
     pub optional: Option<Optional>,
-
+    #[darling(default)]
+    pub source: Option<Ident>,
     pub data: ast::Data<(), FieldReceiver>,
 }
 

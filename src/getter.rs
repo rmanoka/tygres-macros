@@ -1,7 +1,7 @@
 
 pub fn trait_impl(input: Struct) -> TokenStream {
 
-    let Struct { ident, generics, is_optional, fields } = input;
+    let Struct { ident, generics, is_optional, fields, source } = input;
 
     let setters: Punctuated<_, Token![,]> = fields.iter()
             .map(Field::as_col_wrapped_ty)
@@ -39,6 +39,31 @@ pub fn trait_impl(input: Struct) -> TokenStream {
     };
     trait_impl
 
+}
+
+pub fn trait_impl_getter(input: Struct) -> TokenStream {
+    let Struct { ident, generics, is_optional, fields, source } = input;
+    let src = match source {
+        Some(s) => s,
+        _ => panic!("source attribute is required for ColumnsSetter"),
+    };
+    let setters: Punctuated<_, Token![,]> = fields.iter()
+            .map(Field::as_col_wrapped_ty)
+            .collect();
+    let getters: Punctuated<_, Token![,]> = fields.iter()
+            .map(Field::as_const)
+            .collect();
+
+    quote!{
+        impl tygres::Getter for #ident {
+            type Src = #src;
+            type Sel = Seq![#setters];
+
+            fn getter() -> Self::Sel {
+                seq![#getters]
+            }
+        }
+    }
 }
 
 use super::{data::{Struct, Field}};
