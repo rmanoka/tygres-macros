@@ -59,6 +59,9 @@ pub fn trait_impl_getter(input: Struct) -> TokenStream {
             type Src = #src;
             type Sel = Seq![#setters];
 
+            // fn source() -> Self::Src {
+            //     #src::default()
+            // }
             fn getter() -> Self::Sel {
                 seq![#getters]
             }

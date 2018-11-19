@@ -9,6 +9,7 @@ extern crate quote;
 extern crate syn;
 
 mod builder;
+mod schema;
 mod setter;
 mod getter;
 mod data;
@@ -18,15 +19,20 @@ use syn::DeriveInput;
 
 #[proc_macro]
 pub fn builder(input: TokenStream) -> TokenStream {
-    let builder = parse_macro_input!(input as builder::Builder);
-    let output: TokenStream = builder.output().into();
-    output
+    parse_macro_input!(input as builder::Builder)
+        .output().into()
+}
+
+#[proc_macro]
+pub fn schema(input: TokenStream) -> TokenStream {
+    use schema::Schema;
+    parse_macro_input!(input as Schema)
+        .tokens().into()
 }
 
 #[proc_macro_derive(Setter, attributes(tygres))]
 pub fn setter_derive(input: TokenStream) -> TokenStream {
     let item = parse_macro_input!(input as DeriveInput);
-
     TokenStream::from(setter::trait_impl(item.into()))
 }
 
