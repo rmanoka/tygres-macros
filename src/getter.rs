@@ -71,7 +71,6 @@ pub fn trait_impl_getter(input: Struct) -> TokenStream {
 
 use super::{data::{Struct, Field}};
 use proc_macro2::TokenStream;
-use inflections::Inflect;
 use syn::{
     *, token,
     punctuated::Punctuated,

@@ -142,7 +142,6 @@ use super::{
     data::{Field, Struct}
 };
 use proc_macro2::TokenStream;
-use inflections::Inflect;
 use syn::{
     *, token,
     punctuated::Punctuated,

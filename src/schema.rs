@@ -1,4 +1,4 @@
-use proc_macro2::TokenStream;
+use proc_macro2::{TokenStream, Literal};
 use syn::{
     Ident, TypeParamBound, Field, Type,
     punctuated::Punctuated,
@@ -68,7 +68,7 @@ impl Table {
         let defined = self.defined
             || idents.contains(&name.to_string());
         idents.insert(name.to_string());
-        let snake = name.to_string().to_snake_case();
+        let snake = name.to_string().to_plural().to_snake_case();
 
         let mut tokens = if defined {
             quote!{ table!(*#name, #snake); }
@@ -85,32 +85,48 @@ impl Table {
 pub struct Column {
     defined: bool,
     name: Ident,
-    opts: Punctuated<Opts, Token![,]>,
+    col_name: Literal,
+    opts: Punctuated<Opt, Token![,]>,
 }
 
 impl Parse for Column {
     fn parse(input: ParseStream) -> Result<Self> {
         let lookahead = input.lookahead1();
         let content;
-        Ok(Column{
-            defined:
-                if lookahead.peek(Token![*]) {
-                    input.parse::<Token![*]>()?;
-                    true
-                } else {
-                    false
-                },
-            name: input.parse()?,
-            opts: {
-                let lookahead = input.lookahead1();
-                if !lookahead.peek(token::Brace) {
-                    Punctuated::new()
-                } else {
-                    braced!(content in input);
-                    content.parse_terminated(Opts::parse)?
-                }
+
+        let defined = if lookahead.peek(Token![*]) {
+            input.parse::<Token![*]>()?;
+            true
+        } else {
+            false
+        };
+
+        let name: Ident = input.parse()?;
+        let col_name = {
+            let lookahead = input.lookahead1();
+            if !lookahead.peek(token::Paren) {
+                Literal::string(&name.to_string().to_snake_case())
+            } else {
+                let content;
+                parenthesized!(content in input);
+                let opt: ColName = content.parse()?;
+                opt.0
             }
+        };
+
+        let opts = {
+            let lookahead = input.lookahead1();
+            if !lookahead.peek(token::Brace) {
+                Punctuated::new()
+            } else {
+                braced!(content in input);
+                content.parse_terminated(Opt::parse)?
+            }
+        };
+        Ok(Column{
+            col_name, defined, name, opts,
         })
+
     }
 }
 
@@ -119,9 +135,9 @@ impl Column {
 
         let t_name = &table.name;
         let name = &self.name;
-        let cap = name.to_string().to_constant_case();
+        let cap = name.to_string().to_screaming_snake_case();
         let cap = Ident::new(&cap, name.span());
-        let snake = name.to_string().to_snake_case();
+        let snake = &self.col_name;
 
         let defined = self.defined
             || idents.contains(&name.to_string());
@@ -141,16 +157,32 @@ impl Column {
     }
 }
 
+pub struct ColName(Literal);
+
+impl Parse for ColName {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let ident: Ident = input.parse()?;
+        if ident.eq("column_name") {
+            let eq: Token![=] = input.parse()?;
+            let value: Literal = input.parse()?;
+            Ok(ColName(value))
+        } else {
+            Err(input.error(
+                format!("Unexpected ident: {}.", ident)
+            ))
+        }
+    }
+}
 
 
-pub enum Opts {
+pub enum Opt {
     Takes(Type),
     Makes(Type),
     TakesJson(Type),
     MakesJson(Type),
 }
 
-impl Parse for Opts {
+impl Parse for Opt {
     fn parse(input: ParseStream) -> Result<Self> {
         let lookahead = input.lookahead1();
         let ident: Ident = input.parse()?;
@@ -160,14 +192,14 @@ impl Parse for Opts {
         parenthesized!(content in input);
 
         if (ident.eq("takes")) {
-            Ok(Opts::Takes(content.parse()?))
+            Ok(Opt::Takes(content.parse()?))
         } else if (ident.eq("takes_json")) {
-            Ok(Opts::TakesJson(content.parse()?))
+            Ok(Opt::TakesJson(content.parse()?))
 
         } else if (ident.eq("makes")) {
-            Ok(Opts::Makes(content.parse()?))
+            Ok(Opt::Makes(content.parse()?))
         } else if (ident.eq("makes_json")) {
-            Ok(Opts::MakesJson(content.parse()?))
+            Ok(Opt::MakesJson(content.parse()?))
 
         } else {
             Err(input.error(
@@ -177,9 +209,9 @@ impl Parse for Opts {
     }
 }
 
-impl Opts {
+impl Opt {
     fn tokens(&self, col: &Column) -> TokenStream {
-        use Opts::*;
+        use Opt::*;
         let name = &col.name;
         match self {
             Takes(ref ty) => quote!{ takes!(#name, #ty); },
@@ -190,4 +222,4 @@ impl Opts {
     }
 }
 
-use inflections::*;
+use inflector::Inflector;

@@ -49,6 +49,7 @@ pub struct StructReceiver {
 #[derive(Debug)]
 pub struct Field {
     pub ident: Ident,
+    pub column_name: String,
     pub ty: Type,
     pub is_optional: Option<bool>,
 }
@@ -74,7 +75,7 @@ impl Field {
     }
 
     pub fn as_column_ty(self: &Self) -> TokenStream {
-        let col = self.ident.to_string().to_pascal_case();
+        let col = self.column_name.to_pascal_case();
         let col = Ident::new(&col, self.ident.span());
         quote!{ #col }
     }
@@ -85,7 +86,7 @@ impl Field {
     }
 
     pub fn as_const(self: &Self) -> TokenStream {
-        let col = self.ident.to_string().to_constant_case();
+        let col = self.column_name.to_screaming_snake_case();
         let ident = Ident::new(&col, self.ident.span());
         quote!{ #ident }
     }
@@ -98,9 +99,15 @@ impl From<FieldReceiver> for Field {
     fn from(f: FieldReceiver) -> Self {
 
         let is_optional = f.optional.map(|_| true);
+        let ident = f.ident.expect("Only unnamed fields supported");
+        let column_name = if let Some(col) = f.column_name {
+            col
+        } else {
+            ident.to_string()
+        };
 
         Field {
-            ident: f.ident.expect("Should never be unnamed"),
+            ident, column_name,
             ty: f.ty,
             is_optional,
         }
@@ -116,6 +123,8 @@ pub struct FieldReceiver {
 
     #[darling(default)]
     pub optional: Option<Optional>,
+    #[darling(default)]
+    pub column_name: Option<String>,
 }
 
 
@@ -136,4 +145,4 @@ use syn::{
     punctuated::Punctuated,
 };
 use darling::*;
-use inflections::*;
+use inflector::Inflector;
