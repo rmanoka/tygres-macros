@@ -38,7 +38,7 @@ impl Field {
 
 pub fn trait_impl_ref_setter(input: Struct) -> TokenStream {
 
-    let Struct { ident, generics, is_optional, fields, source } = input;
+    let Struct { ident, generics: _, is_optional, fields, source: _ } = input;
 
     let types: Punctuated<_, Token![,]> = fields.iter()
         .map(|f| Field::as_valued_ty(f, true, is_optional))
@@ -62,7 +62,7 @@ pub fn trait_impl_ref_setter(input: Struct) -> TokenStream {
 
 pub fn trait_impl_val_setter(input: Struct) -> TokenStream {
 
-    let Struct { ident, generics, is_optional, fields, source } = input;
+    let Struct { ident, generics: _, is_optional, fields, source: _ } = input;
 
     let types: Punctuated<_, Token![,]> = fields.iter()
         .map(|f| Field::as_valued_ty(f, false, is_optional))
@@ -84,11 +84,11 @@ pub fn trait_impl_val_setter(input: Struct) -> TokenStream {
 }
 
 pub fn trait_impl_takes_unit(input: Struct) -> TokenStream {
-    let Struct { ident, generics, is_optional, fields, source } = input;
+    let Struct { ident, generics: _, is_optional, fields, source: _ } = input;
 
     let pushes: Vec<_> = fields.iter().map(|f| {
         let wrap = f.as_col_wrapped_ty();
-        let ty = f.as_ty();
+        let _ty = f.as_ty();
         let ident = f.as_ident();
         let cap = f.as_const();
         if f.is_optional.unwrap_or(is_optional) {
@@ -113,7 +113,7 @@ pub fn trait_impl_takes_unit(input: Struct) -> TokenStream {
 }
 
 pub fn trait_impl_columns_setter(input: Struct) -> TokenStream {
-    let Struct { ident, generics, is_optional, fields, source } = input;
+    let Struct { ident, generics: _, is_optional, fields, source } = input;
     let src = match source {
         Some(s) => s,
         _ => panic!("source attribute is required for ColumnsSetter"),
@@ -139,7 +139,7 @@ pub fn trait_impl_columns_setter(input: Struct) -> TokenStream {
 }
 
 pub fn trait_impl_setter(input: Struct) -> TokenStream {
-    let Struct { ident, generics, is_optional, fields, source } = input;
+    let Struct { ident, generics: _, is_optional: _, fields, source: _ } = input;
 
     let cols: Punctuated<_, Token![,]> = fields.iter()
         .map(Field::as_const)
@@ -153,7 +153,7 @@ pub fn trait_impl_setter(input: Struct) -> TokenStream {
     let idents: Punctuated<_, Token![,]> = fields.iter()
         .map(Field::as_ident)
         .collect();
-    let wrap2 = col_wrapped.clone();
+    let _wrap2 = col_wrapped.clone();
     quote!{
         impl<'a> tygres::Setter<'a> for #ident {
             type Val = Seq![#(&'a #tys),*];

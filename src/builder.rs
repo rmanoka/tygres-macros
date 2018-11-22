@@ -59,7 +59,7 @@ impl Builder {
             })
         };
 
-        let fields = {
+        let _fields = {
             fields_ref.into_iter().map(|f| {
                 &f.field_name
             })
@@ -157,8 +157,8 @@ impl Setter {
             let mut i = 0;
             types.into_iter().map(move |t| {
                 i += 1;
-                if (idx == (i - 1)) {
-                    match (self.star) {
+                if idx == (i - 1) {
+                    match self.star {
                         Some(_) => quote!(#type_name),
                         None => quote!(Wrap<#type_name>),
                     }
@@ -175,9 +175,9 @@ impl Setter {
             fields_ref.into_iter().map(move |f| {
                 i += 1;
                 let field_name = &f.field_name;
-                let type_name = &f.type_name;
+                let _type_name = &f.type_name;
                 if idx == (i - 1) {
-                    match (self.star) {
+                    match self.star {
                         Some(_) => quote!(#field_name: #field_name),
                         None => quote!(#field_name: Wrap(#field_name)),
                     }

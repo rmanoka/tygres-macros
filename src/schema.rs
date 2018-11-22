@@ -163,7 +163,7 @@ impl Parse for ColName {
     fn parse(input: ParseStream) -> Result<Self> {
         let ident: Ident = input.parse()?;
         if ident.eq("column_name") {
-            let eq: Token![=] = input.parse()?;
+            let _eq: Token![=] = input.parse()?;
             let value: Literal = input.parse()?;
             Ok(ColName(value))
         } else {
@@ -184,21 +184,21 @@ pub enum Opt {
 
 impl Parse for Opt {
     fn parse(input: ParseStream) -> Result<Self> {
-        let lookahead = input.lookahead1();
+        let _lookahead = input.lookahead1();
         let ident: Ident = input.parse()?;
-        let span = ident.span();
+        let _span = ident.span();
         let ident = ident.to_string();
         let content;
         parenthesized!(content in input);
 
-        if (ident.eq("takes")) {
+        if ident.eq("takes") {
             Ok(Opt::Takes(content.parse()?))
-        } else if (ident.eq("takes_json")) {
+        } else if ident.eq("takes_json") {
             Ok(Opt::TakesJson(content.parse()?))
 
-        } else if (ident.eq("makes")) {
+        } else if ident.eq("makes") {
             Ok(Opt::Makes(content.parse()?))
-        } else if (ident.eq("makes_json")) {
+        } else if ident.eq("makes_json") {
             Ok(Opt::MakesJson(content.parse()?))
 
         } else {
