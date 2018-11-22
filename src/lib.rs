@@ -30,16 +30,16 @@ pub fn schema(input: TokenStream) -> TokenStream {
         .tokens().into()
 }
 
-#[proc_macro_derive(Setter, attributes(tygres))]
+#[proc_macro_derive(RefSetter, attributes(tygres))]
 pub fn setter_derive(input: TokenStream) -> TokenStream {
     let item = parse_macro_input!(input as DeriveInput);
-    TokenStream::from(setter::trait_impl(item.into()))
+    TokenStream::from(setter::trait_impl_ref_setter(item.into()))
 }
 
-#[proc_macro_derive(OwnedSetter, attributes(tygres))]
+#[proc_macro_derive(ValSetter, attributes(tygres))]
 pub fn setter_owned_derive(input: TokenStream) -> TokenStream {
     let item = parse_macro_input!(input as DeriveInput);
-    TokenStream::from(setter::trait_impl_owned(item.into()))
+    TokenStream::from(setter::trait_impl_val_setter(item.into()))
 }
 
 #[proc_macro_derive(TakesUnit, attributes(tygres))]
@@ -52,6 +52,12 @@ pub fn takes_unit_derive(input: TokenStream) -> TokenStream {
 pub fn takes_columns_setter_derive(input: TokenStream) -> TokenStream {
     let item = parse_macro_input!(input as DeriveInput);
     TokenStream::from(setter::trait_impl_columns_setter(item.into()))
+}
+
+#[proc_macro_derive(Setter, attributes(tygres))]
+pub fn takes_as_values_derive(input: TokenStream) -> TokenStream {
+    let item = parse_macro_input!(input as DeriveInput);
+    TokenStream::from(setter::trait_impl_setter(item.into()))
 }
 
 #[proc_macro_derive(Makes, attributes(tygres))]

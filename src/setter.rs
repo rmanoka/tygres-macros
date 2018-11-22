@@ -36,7 +36,7 @@ impl Field {
     }
 }
 
-pub fn trait_impl(input: Struct) -> TokenStream {
+pub fn trait_impl_ref_setter(input: Struct) -> TokenStream {
 
     let Struct { ident, generics, is_optional, fields, source } = input;
 
@@ -49,7 +49,7 @@ pub fn trait_impl(input: Struct) -> TokenStream {
         .collect();
 
     let trait_impl = quote!{
-        impl<'a> tygres::Setter<'a> for #ident {
+        impl<'a> tygres::RefSetter<'a> for #ident {
             type Out = Seq![#types];
             fn as_setter(&'a self) -> Self::Out {
                 seq![#setters]
@@ -60,7 +60,7 @@ pub fn trait_impl(input: Struct) -> TokenStream {
 
 }
 
-pub fn trait_impl_owned(input: Struct) -> TokenStream {
+pub fn trait_impl_val_setter(input: Struct) -> TokenStream {
 
     let Struct { ident, generics, is_optional, fields, source } = input;
 
@@ -73,7 +73,7 @@ pub fn trait_impl_owned(input: Struct) -> TokenStream {
         .collect();
 
     let trait_impl = quote!{
-        impl<'a> tygres::OwnedSetter for #ident {
+        impl<'a> tygres::ValSetter for #ident {
             type Out = Seq![#types];
             fn as_setter(self) -> Self::Out {
                 seq![#setters]
@@ -94,18 +94,18 @@ pub fn trait_impl_takes_unit(input: Struct) -> TokenStream {
         if f.is_optional.unwrap_or(is_optional) {
             quote!{ match self.#ident.as_ref() {
                 Some(r) => {
-                    <#wrap as Takes<_>>::push_values(&#cap, r, buf);
+                    <#wrap as tygres::Takes<_>>::push_values(&#cap, r, buf);
                 },
                 _ => {},
             }}
         } else {
-            quote!{ <#wrap as Takes<_>>::push_values(&#cap, &self.#ident, buf); }
+            quote!{ <#wrap as tygres::Takes<_>>::push_values(&#cap, &self.#ident, buf); }
         }
     }).collect();
 
     quote!{
         impl<'a> tygres::Takes<'a, tygres::utils::Unit> for #ident {
-            fn push_values<'b>(&'a self, values: Unit, buf: &'b mut Vec<&'a postgres::types::ToSql>) {
+            fn push_values<'b>(&'a self, values: tygres::utils::Unit, buf: &'b mut Vec<&'a postgres::types::ToSql>) {
                 #(#pushes)*
             }
         }
@@ -135,6 +135,41 @@ pub fn trait_impl_columns_setter(input: Struct) -> TokenStream {
                     ::push_values(&seq![#(#sels2),*], buf, idx)
             }
         }
+    }
+}
+
+pub fn trait_impl_setter(input: Struct) -> TokenStream {
+    let Struct { ident, generics, is_optional, fields, source } = input;
+
+    let cols: Punctuated<_, Token![,]> = fields.iter()
+        .map(Field::as_const)
+        .collect();
+    let col_wrapped: Punctuated<_, Token![,]> = fields.iter()
+        .map(Field::as_col_wrapped_ty)
+        .collect();
+    let tys: Punctuated<_, Token![,]> = fields.iter()
+        .map(Field::as_ty)
+        .collect();
+    let idents: Punctuated<_, Token![,]> = fields.iter()
+        .map(Field::as_ident)
+        .collect();
+    let wrap2 = col_wrapped.clone();
+    quote!{
+        impl<'a> tygres::Setter<'a> for #ident {
+            type Val = Seq![#(&'a #tys),*];
+            type Set = Seq![#(#col_wrapped),*];
+
+            fn setter() -> Self::Set {
+                seq![#(#cols),*]
+            }
+
+            fn as_value(&'a self) -> Self::Val {
+                seq![#(&self.#idents),*]
+            }
+        }
+        // impl<'a> tygres::AsValues for #ident {
+        //     type Set = Seq![#(#wrap2),*];
+        // }
     }
 }
 
