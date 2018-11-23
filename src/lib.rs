@@ -54,10 +54,10 @@ pub fn takes_columns_setter_derive(input: TokenStream) -> TokenStream {
     TokenStream::from(setter::trait_impl_columns_setter(item.into()))
 }
 
-#[proc_macro_derive(Setter, attributes(tygres))]
+#[proc_macro_derive(HasSetter, attributes(tygres))]
 pub fn takes_as_values_derive(input: TokenStream) -> TokenStream {
     let item = parse_macro_input!(input as DeriveInput);
-    TokenStream::from(setter::trait_impl_setter(item.into()))
+    TokenStream::from(setter::trait_impl_has_setter(item.into()))
 }
 
 #[proc_macro_derive(Makes, attributes(tygres))]

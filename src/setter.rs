@@ -138,7 +138,7 @@ pub fn trait_impl_columns_setter(input: Struct) -> TokenStream {
     }
 }
 
-pub fn trait_impl_setter(input: Struct) -> TokenStream {
+pub fn trait_impl_has_setter(input: Struct) -> TokenStream {
     let Struct { ident, generics: _, is_optional: _, fields, source: _ } = input;
 
     let cols: Punctuated<_, Token![,]> = fields.iter()
@@ -155,7 +155,7 @@ pub fn trait_impl_setter(input: Struct) -> TokenStream {
         .collect();
     let _wrap2 = col_wrapped.clone();
     quote!{
-        impl<'a> tygres::Setter<'a> for #ident {
+        impl<'a> tygres::HasSetter<'a> for #ident {
             type Val = Seq![#(&'a #tys),*];
             type Set = Seq![#(#col_wrapped),*];
 
@@ -167,9 +167,6 @@ pub fn trait_impl_setter(input: Struct) -> TokenStream {
                 seq![#(&self.#idents),*]
             }
         }
-        // impl<'a> tygres::AsValues for #ident {
-        //     type Set = Seq![#(#wrap2),*];
-        // }
     }
 }
 
