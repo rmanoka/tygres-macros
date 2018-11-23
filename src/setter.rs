@@ -105,7 +105,7 @@ pub fn trait_impl_takes_unit(input: Struct) -> TokenStream {
 
     quote!{
         impl<'a> tygres::Takes<'a, tygres::utils::Unit> for #ident {
-            fn push_values<'b>(&'a self, values: tygres::utils::Unit, buf: &'b mut Vec<&'a postgres::types::ToSql>) {
+            fn push_values<'b: 'a>(&'b self, values: tygres::utils::Unit, buf: &mut Vec<&'a postgres::types::ToSql>) {
                 #(#pushes)*
             }
         }
