@@ -55,9 +55,15 @@ pub fn takes_columns_setter_derive(input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_derive(HasSetter, attributes(tygres))]
-pub fn takes_as_values_derive(input: TokenStream) -> TokenStream {
+pub fn has_setter_derive(input: TokenStream) -> TokenStream {
     let item = parse_macro_input!(input as DeriveInput);
     TokenStream::from(setter::trait_impl_has_setter(item.into()))
+}
+
+#[proc_macro_derive(HasOwnedSetter, attributes(tygres))]
+pub fn has_owned_setter_derive(input: TokenStream) -> TokenStream {
+    let item = parse_macro_input!(input as DeriveInput);
+    TokenStream::from(setter::trait_impl_has_owned_setter(item.into()))
 }
 
 #[proc_macro_derive(Makes, attributes(tygres))]

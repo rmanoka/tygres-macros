@@ -170,6 +170,38 @@ pub fn trait_impl_has_setter(input: Struct) -> TokenStream {
     }
 }
 
+pub fn trait_impl_has_owned_setter(input: Struct) -> TokenStream {
+    let Struct { ident, generics: _, is_optional: _, fields, source: _ } = input;
+
+    let cols: Punctuated<_, Token![,]> = fields.iter()
+        .map(Field::as_const)
+        .collect();
+    let col_wrapped: Punctuated<_, Token![,]> = fields.iter()
+        .map(Field::as_col_wrapped_ty)
+        .collect();
+    let tys: Punctuated<_, Token![,]> = fields.iter()
+        .map(Field::as_ty)
+        .collect();
+    let idents: Punctuated<_, Token![,]> = fields.iter()
+        .map(Field::as_ident)
+        .collect();
+    let _wrap2 = col_wrapped.clone();
+    quote!{
+        impl<'a> tygres::HasOwnedSetter for #ident {
+            type Val = Seq![#(#tys),*];
+            type Set = Seq![#(#col_wrapped),*];
+
+            fn setter() -> Self::Set {
+                seq![#(#cols),*]
+            }
+
+            fn into_value(self) -> Self::Val {
+                seq![#(self.#idents),*]
+            }
+        }
+    }
+}
+
 use super::{
     data::{Field, Struct}
 };
