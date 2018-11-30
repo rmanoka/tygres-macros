@@ -1,57 +1,41 @@
-#[derive(FromMeta, Debug)]
-pub struct Optional;
-#[derive(FromMeta, Debug)]
-pub struct Required;
-
 pub struct Struct {
     pub ident: Ident,
     pub generics: syn::Generics,
-    pub is_optional: bool,
+    pub optional: bool,
     pub fields: Vec<Field>,
     pub source: Option<Ident>,
 }
 
-impl FromDeriveInput for Struct {
-    fn from_derive_input(input: &syn::DeriveInput) -> Result<Self, Error> {
-        StructReceiver::from_derive_input(input).map(|f| {
+impl From<DeriveInput> for Struct {
+    fn from(input: DeriveInput) -> Struct {
+        let opts = parse_attribute(&input.attrs);
 
-            Struct {
-                ident: f.ident,
-                generics: f.generics,
-                is_optional: f.optional.is_some(),
-                source: f.source,
-                fields: f.data
-                            .take_struct()
-                            .expect("Should never be enum")
-                            .fields.into_iter().map(
-                                Into::into
-                            ).collect()
-            }
-        })
-
+        Struct {
+            ident: input.ident,
+            generics: input.generics,
+            fields: match input.data {
+                syn::Data::Struct(s) => { match s.fields {
+                    syn::Fields::Named(f) => {
+                        f.named.into_iter().map(Into::into).collect()
+                    },
+                    _ => panic!("Only named structs supported!"),
+                }},
+                _ => panic!("Only named structs supported!"),
+            },
+            optional: opts.optional,
+            source: opts.source,
+        }
     }
 }
 
-
-#[derive(FromDeriveInput, Debug)]
-#[darling(attributes(tygres), supports(struct_named))]
-pub struct StructReceiver {
-    pub ident: Ident,
-    pub generics: syn::Generics,
-
-    #[darling(default)]
-    pub optional: Option<Optional>,
-    #[darling(default)]
-    pub source: Option<Ident>,
-    pub data: ast::Data<(), FieldReceiver>,
-}
 
 #[derive(Debug)]
 pub struct Field {
     pub ident: Ident,
     pub column_name: String,
     pub ty: Type,
-    pub is_optional: Option<bool>,
+    pub optional: bool,
+    pub wrap: Option<Ident>,
 }
 
 impl Field {
@@ -94,55 +78,27 @@ impl Field {
 }
 
 
-use std::result::Result;
-impl From<FieldReceiver> for Field {
-    fn from(f: FieldReceiver) -> Self {
+impl From<syn::Field> for Field {
+    fn from(input: syn::Field) -> Field {
 
-        let is_optional = f.optional.map(|_| true);
-        let ident = f.ident.expect("Only unnamed fields supported");
-        let column_name = if let Some(col) = f.column_name {
-            col
-        } else {
-            ident.to_string()
-        };
+        let opts = parse_attribute(&input.attrs);
+        let ident = input.ident.unwrap();
+        let column_name = opts.column_name.unwrap_or_else(|| ident.to_string());
 
         Field {
             ident, column_name,
-            ty: f.ty,
-            is_optional,
-        }
-
-    }
-}
-
-#[derive(Debug, FromField)]
-#[darling(attributes(tygres))]
-pub struct FieldReceiver {
-    pub ident: Option<Ident>,
-    pub ty: Type,
-
-    #[darling(default)]
-    pub optional: Option<Optional>,
-    #[darling(default)]
-    pub column_name: Option<String>,
-}
-
-
-impl From<DeriveInput> for Struct {
-    fn from(input: DeriveInput) -> Struct {
-        match FromDeriveInput::from_derive_input(&input) {
-            Ok(s) => s,
-            Err(e) => {
-                panic!(format!("{}", e));
-            }
+            ty: input.ty,
+            optional: opts.optional,
+            wrap: opts.wrap,
         }
     }
 }
+
 
 use proc_macro2::TokenStream;
 use syn::{
     *, token,
     punctuated::Punctuated,
 };
-use darling::*;
 use inflector::Inflector;
+use super::attrs::*;

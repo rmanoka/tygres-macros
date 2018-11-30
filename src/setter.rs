@@ -1,5 +1,5 @@
 impl Field {
-    fn as_valued_ty(self: &Self, reffed: bool, is_optional: bool) -> TokenStream {
+    fn as_valued_ty(self: &Self, reffed: bool, optional: bool) -> TokenStream {
         let f = self;
         let ty = f.as_ty();
         let col = f.as_column_ty();
@@ -8,14 +8,14 @@ impl Field {
         } else {
             quote!{(#ty, #col)}
         };
-        if f.is_optional.unwrap_or(is_optional) {
+        if f.optional || optional {
             quote!{ Opt!#exp }
         } else {
             quote!{ With!#exp }
         }
     }
 
-    fn as_value_setter(self: &Self, reffed: bool, is_optional: bool) -> TokenStream {
+    fn as_value_setter(self: &Self, reffed: bool, optional: bool) -> TokenStream {
         let f = self;
         let ident = f.as_ident();
         let cap = f.as_const();
@@ -24,7 +24,7 @@ impl Field {
         } else {
             quote!{ self.#ident}
         };
-        if f.is_optional.unwrap_or(is_optional) {
+        if f.optional || optional {
             if reffed {
                 quote!{ #cap.if_some_ref(#ident) }
             } else {
@@ -38,14 +38,14 @@ impl Field {
 
 pub fn trait_impl_ref_setter(input: Struct) -> TokenStream {
 
-    let Struct { ident, generics: _, is_optional, fields, source: _ } = input;
+    let Struct { ident, generics: _, optional, fields, source: _ } = input;
 
     let types: Punctuated<_, Token![,]> = fields.iter()
-        .map(|f| Field::as_valued_ty(f, true, is_optional))
+        .map(|f| Field::as_valued_ty(f, true, optional))
         .collect();
 
     let setters: Punctuated<_, Token![,]> = fields.iter()
-        .map(|f| Field::as_value_setter(f, true, is_optional))
+        .map(|f| Field::as_value_setter(f, true, optional))
         .collect();
 
     let trait_impl = quote!{
@@ -62,14 +62,14 @@ pub fn trait_impl_ref_setter(input: Struct) -> TokenStream {
 
 pub fn trait_impl_val_setter(input: Struct) -> TokenStream {
 
-    let Struct { ident, generics: _, is_optional, fields, source: _ } = input;
+    let Struct { ident, generics: _, optional, fields, source: _ } = input;
 
     let types: Punctuated<_, Token![,]> = fields.iter()
-        .map(|f| Field::as_valued_ty(f, false, is_optional))
+        .map(|f| Field::as_valued_ty(f, false, optional))
         .collect();
 
     let setters: Punctuated<_, Token![,]> = fields.iter()
-        .map(|f| Field::as_value_setter(f, false, is_optional))
+        .map(|f| Field::as_value_setter(f, false, optional))
         .collect();
 
     let trait_impl = quote!{
@@ -84,14 +84,14 @@ pub fn trait_impl_val_setter(input: Struct) -> TokenStream {
 }
 
 pub fn trait_impl_takes_unit(input: Struct) -> TokenStream {
-    let Struct { ident, generics: _, is_optional, fields, source: _ } = input;
+    let Struct { ident, generics: _, optional, fields, source: _ } = input;
 
     let pushes: Vec<_> = fields.iter().map(|f| {
         let wrap = f.as_col_wrapped_ty();
         let _ty = f.as_ty();
         let ident = f.as_ident();
         let cap = f.as_const();
-        if f.is_optional.unwrap_or(is_optional) {
+        if f.optional || optional {
             quote!{ match self.#ident.as_ref() {
                 Some(r) => {
                     <#wrap as tygres::Takes<_>>::push_values(&#cap, r, buf);
@@ -113,22 +113,24 @@ pub fn trait_impl_takes_unit(input: Struct) -> TokenStream {
 }
 
 pub fn trait_impl_columns_setter(input: Struct) -> TokenStream {
-    let Struct { ident, generics: _, is_optional, fields, source } = input;
-    let src = match source {
+    let Struct { ident, generics: _, optional, fields, source } = input;
+    let src = &match source {
         Some(s) => s,
         _ => panic!("source attribute is required for ColumnsSetter"),
     };
     let sels: Punctuated<_, Token![,]> = fields.iter()
-        .map(|f| Field::as_value_setter(f, true, is_optional))
+        .map(|f| Field::as_value_setter(f, true, optional))
         .collect();
     let types: Punctuated<_, Token![,]> = fields.iter()
-        .map(|f| Field::as_valued_ty(f, true, is_optional))
+        .map(|f| Field::as_valued_ty(f, true, optional))
         .collect();
     let sels2 = sels.clone();
     quote!{
         impl tygres::ColumnsSetter<#src> for #ident {
             fn push_selection(&self, buf: &mut String) -> bool {
-                seq![#(#sels),*].push_selection(buf)
+                tygres::ColumnsSetter::<#src>::push_selection(
+                    &seq![#(#sels),*], buf
+                )
             }
             fn push_values(&self, buf: &mut String, idx: usize) -> usize {
                 <Seq![#(#types),*] as tygres::ColumnsSetter<#src>>
@@ -139,7 +141,7 @@ pub fn trait_impl_columns_setter(input: Struct) -> TokenStream {
 }
 
 pub fn trait_impl_has_setter(input: Struct) -> TokenStream {
-    let Struct { ident, generics: _, is_optional: _, fields, source: _ } = input;
+    let Struct { ident, generics: _, optional: _, fields, source: _ } = input;
 
     let cols: Punctuated<_, Token![,]> = fields.iter()
         .map(Field::as_const)
@@ -171,7 +173,7 @@ pub fn trait_impl_has_setter(input: Struct) -> TokenStream {
 }
 
 pub fn trait_impl_has_owned_setter(input: Struct) -> TokenStream {
-    let Struct { ident, generics: _, is_optional: _, fields, source: _ } = input;
+    let Struct { ident, generics: _, optional: _, fields, source: _ } = input;
 
     let cols: Punctuated<_, Token![,]> = fields.iter()
         .map(Field::as_const)
@@ -180,10 +182,26 @@ pub fn trait_impl_has_owned_setter(input: Struct) -> TokenStream {
         .map(Field::as_col_wrapped_ty)
         .collect();
     let tys: Punctuated<_, Token![,]> = fields.iter()
-        .map(Field::as_ty)
+        .map(|f| {
+            let ty = f.as_ty();
+            if f.wrap.is_none() {
+                ty
+            } else {
+                let wrap = &f.wrap;
+                quote!{ #wrap<#ty> }
+            }
+        })
         .collect();
     let idents: Punctuated<_, Token![,]> = fields.iter()
-        .map(Field::as_ident)
+        .map(|f| {
+            let ident = f.as_ident();
+            if f.wrap.is_none() {
+                quote!{ self.#ident }
+            } else {
+                let wrap = &f.wrap;
+                quote!{ #wrap(self.#ident) }
+            }
+        })
         .collect();
     let _wrap2 = col_wrapped.clone();
     quote!{
@@ -196,7 +214,7 @@ pub fn trait_impl_has_owned_setter(input: Struct) -> TokenStream {
             }
 
             fn into_value(self) -> Self::Val {
-                seq![#(self.#idents),*]
+                seq![#(#idents),*]
             }
         }
     }

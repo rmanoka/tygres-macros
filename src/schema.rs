@@ -1,12 +1,3 @@
-use proc_macro2::{TokenStream, Literal};
-use syn::{
-    Ident, TypeParamBound, Field, Type,
-    punctuated::Punctuated,
-    token,
-    parse::{Parse, ParseStream, Result}
-};
-
-use std::collections::HashSet;
 pub struct Schema {
     tables: Punctuated<Table, Token![,]>,
 }
@@ -223,3 +214,11 @@ impl Opt {
 }
 
 use inflector::Inflector;
+use proc_macro2::{TokenStream, Literal};
+use syn::{
+    Ident, TypeParamBound, Field, Type,
+    punctuated::Punctuated,
+    token,
+    parse::{Parse, ParseStream, Result}
+};
+use std::collections::HashSet;

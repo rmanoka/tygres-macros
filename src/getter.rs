@@ -1,7 +1,7 @@
 
 pub fn trait_impl(input: Struct) -> TokenStream {
 
-    let Struct { ident, generics: _, is_optional: _, fields, source: _ } = input;
+    let Struct { ident, generics: _, optional: _, fields, source: _ } = input;
 
     let setters: Punctuated<_, Token![,]> = fields.iter()
             .map(Field::as_col_wrapped_ty)
@@ -13,7 +13,15 @@ pub fn trait_impl(input: Struct) -> TokenStream {
 
     let lets: Vec<_> = fields.iter().map(|f| {
         let ident = f.as_ident();
+
         let ty = f.as_ty();
+        let ty = if f.wrap.is_none() {
+            ty
+        } else {
+            let wrap = &f.wrap;
+            quote!{ #wrap<#ty> }
+        };
+
         let wrapped = f.as_col_wrapped_ty();
         let ref_ident = f.as_ref_ident();
 
@@ -22,7 +30,15 @@ pub fn trait_impl(input: Struct) -> TokenStream {
     }).collect();
 
     let getters: Punctuated<_, Token![,]> = fields.iter()
-            .map(Field::as_ident)
+            .map(|f| {
+                let ident = f.as_ident();
+                if f.wrap.is_none() {
+                    ident
+                } else {
+                    let wrap = &f.wrap;
+                    quote!{ #ident: #ident.0 }
+                }
+            })
             .collect();
 
     let trait_impl = quote!{
@@ -42,10 +58,10 @@ pub fn trait_impl(input: Struct) -> TokenStream {
 }
 
 pub fn trait_impl_getter(input: Struct) -> TokenStream {
-    let Struct { ident, generics: _, is_optional: _, fields, source } = input;
+    let Struct { ident, generics: _, optional: _, fields, source } = input;
     let src = match source {
         Some(s) => s,
-        _ => panic!("source attribute is required for ColumnsSetter"),
+        _ => panic!("source attribute is required for Getter"),
     };
     let setters: Punctuated<_, Token![,]> = fields.iter()
             .map(Field::as_col_wrapped_ty)

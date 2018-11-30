@@ -13,6 +13,7 @@ mod schema;
 mod setter;
 mod getter;
 mod data;
+mod attrs;
 
 use self::proc_macro::TokenStream;
 use syn::DeriveInput;
