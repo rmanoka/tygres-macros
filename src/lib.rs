@@ -1,4 +1,4 @@
-#![feature(extern_crate_item_prelude, uniform_paths, arbitrary_self_types)]
+#![feature(extern_crate_item_prelude, arbitrary_self_types)]
 extern crate proc_macro;
 extern crate proc_macro2;
 
@@ -78,4 +78,3 @@ pub fn getter_derive(input: TokenStream) -> TokenStream {
     let item = parse_macro_input!(input as DeriveInput);
     TokenStream::from(getter::trait_impl_getter(item.into()))
 }
-

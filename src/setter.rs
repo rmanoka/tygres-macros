@@ -132,7 +132,7 @@ pub fn trait_impl_columns_setter(input: Struct) -> TokenStream {
                     &seq![#(#sels),*], buf
                 )
             }
-            fn push_values(&self, buf: &mut String, idx: usize) -> usize {
+            fn push_values(&self, buf: &mut String, idx: usize) -> (usize, bool) {
                 <Seq![#(#types),*] as tygres::ColumnsSetter<#src>>
                     ::push_values(&seq![#(#sels2),*], buf, idx)
             }
